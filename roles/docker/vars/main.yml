@@ -1,0 +1,44 @@
+---
+# Distribution-specific settings
+docker_distributions:
+  Ubuntu:
+    repo_name: "ubuntu"
+    dependencies:
+      - "apt-transport-https"
+      - "ca-certificates"
+      - "curl"
+      - "gnupg"
+      - "lsb-release"
+  Debian:
+    repo_name: "debian"
+    dependencies:
+      - "apt-transport-https"
+      - "ca-certificates"
+      - "curl"
+      - "gnupg"
+      - "lsb-release"
+  CentOS:
+    repo_name: "centos"
+    dependencies:
+      - "yum-utils"
+      - "device-mapper-persistent-data"
+      - "lvm2"
+  RedHat:
+    repo_name: "rhel"
+    dependencies:
+      - "yum-utils"
+      - "device-mapper-persistent-data"
+      - "lvm2"
+
+# Docker packages list
+docker_packages_fallback:
+  - "docker-ce"
+  - "docker-ce-cli"
+  - "containerd.io"
+  - "docker-buildx-plugin"
+  - "docker-compose-plugin"
+  - "docker-compose"
+  - "docker-ce-rootless-extras"
+
+docker_repo_url: "https://download.docker.com/linux"
+docker_repo_component: "stable"

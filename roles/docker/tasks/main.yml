@@ -1,0 +1,114 @@
+---
+- name: Include OS-specific variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - "vars/{{ ansible_distribution }}.yml"
+
+- name: Set fact docker_packages with extra packages
+  set_fact:
+    docker_packages: "{{ docker_packages | combine({ansible_distribution_release: merged_list}) }}"
+  vars:
+    merged_list: "{{ docker_packages[ansible_distribution_release] |
+      community.general.lists_mergeby(docker_packages_extra[ansible_distribution_release], 'name', recursive=true) }}"
+  when:
+    - docker_packages_extra is defined
+    - docker_packages is defined
+    - ansible_distribution in docker_distributions.keys()
+
+- name: Install Docker dependencies
+  package:
+    name: "{{ docker_distributions[ansible_distribution].dependencies }}"
+    state: present
+  when:
+    - docker_distributions is defined
+    - ansible_distribution in docker_distributions.keys()
+
+- name: Finding an existing docker repository
+  shell: |
+    /usr/bin/grep -r "{{ docker_repo_url }}" /etc/apt/sources.list.d/docker.list 2>/dev/null || true
+  args:
+    executable: /bin/bash
+  register: docker_list_exists
+  changed_when: false
+  when:
+    - ansible_distribution in ["Ubuntu", "Debian"]
+
+- name: Remove Docker apt source lists
+  become: true
+  file:
+    path: "/etc/apt/sources.list.d/docker.list"
+    state: absent
+  when: docker_list_exists.stdout == ""
+
+# https://download.docker.com/linux/ubuntu jammy/stable amd64 Packages
+- name: Add Docker GPG key (Ubuntu/Debian)
+  become: true
+  apt_key:
+    url: "{{ docker_repo_url }}/{{ docker_distributions[ansible_distribution].repo_name }}/gpg"
+    state: present
+  when:
+    - docker_distributions is defined
+    - ansible_distribution in ["Ubuntu", "Debian"]
+    - docker_list_exists.stdout == ""
+
+- name: Add Docker repository (Ubuntu/Debian)
+  become: true
+  apt_repository:
+    repo: "deb [arch=amd64] {{ docker_repo_url }}/{{ docker_distributions[ansible_distribution].repo_name  }} {{ ansible_distribution_release }} {{ docker_repo_component }}"
+    state: present
+    filename: "docker"
+    update_cache: true
+  when:
+    - docker_distributions is defined
+    - docker_repo_url is defined
+    - docker_repo_component is defined
+    - ansible_distribution in ["Ubuntu", "Debian"]
+    - docker_list_exists.stdout == ""
+
+- name: Include APT pin tasks
+  include_tasks: apt_pin.yml
+  when:
+    - ansible_distribution in docker_distributions.keys()
+    - ansible_distribution_release is defined
+    - use_apt_pin_version is defined
+    - docker_packages is defined
+    - docker_ensure is defined
+
+- name: Set Docker packages to state ({{ docker_ensure }})
+  become: true
+  apt:
+    name: "{{ item }}"
+    state: "{{ docker_ensure }}"
+    allow_downgrade: true
+    update_cache: true
+  with_items: "{{ docker_packages_fallback }}"
+  when:
+    - docker_ensure is defined
+    - docker_packages_fallback is defined
+  notify:
+    - Enable and start Docker
+
+- name: Add users to docker group
+  become: true
+  user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  with_items: "{{ docker_users }}"
+  when:
+    - docker_users | length > 0
+    - docker_ensure != "absent"
+
+- name: Include task for checking Docker installation
+  include_tasks: packages.yml
+  with_items: "{{ docker_packages_fallback }}"
+  when:
+    - docker_ensure != "absent"
+
+- name: Display installation status
+  tags:
+    - debug
+  debug:
+    var: package_version_list
+  when:
+    - package_version_list is defined

@@ -1,0 +1,70 @@
+#jinja2: keep_trailing_newline:True
+---
+apiVersion: 1
+datasources:
+  {% if grafana_ds.name %}
+  - name: {{ grafana_ds.name }}
+    {% endif %}
+    type: prometheus
+    {% if grafana_ds.url | mandatory("Key 'url' must be defined") %}
+    url: {{ grafana_ds.url }}
+    {% endif %}
+    {% if grafana_ds.isDefault is defined %}
+    isDefault: {{ grafana_ds.isDefault }}
+    {% else %}
+    isDefault: true
+    {% endif %}
+    access: proxy
+    {% if grafana_ds.editable | mandatory("Key 'editable' must be defined") %}
+    editable: {{ grafana_ds.editable | default(true) }}
+    {% endif %}
+    {# # uncomment if prom has basicAuth ans set password #}
+    basicAuth: true
+    {% if grafana_ds.basicAuthUser is defined and grafana_ds.basicAuthUser|length > 0 %}
+    basicAuthUser: {{ grafana_ds.basicAuthUser }}
+    {% else %}
+    basicAuthUser: "admin"
+    {% endif %}
+    {% if grafana_ds.secureJsonData | mandatory("Key 'secureJsonData' must be defined")  %}
+    secureJsonData:
+      {% if grafana_ds.secureJsonData.basicAuthPassword is defined and grafana_ds.secureJsonData.basicAuthPassword|length > 0 %}
+      basicAuthPassword: {{ grafana_ds.secureJsonData.basicAuthPassword }}
+      {% else %}
+      basicAuthPassword: "admin"
+      {% endif %}
+      {% if grafana_ds.url.startswith("https") %}
+      #  tlsCACert: $__file{/certs/tls.crt}
+      tlsClientCert: $__file{/etc/grafana/certs/tls.crt}
+      tlsClientKey: $__file{/etc/grafana/certs/tls.key}
+      {% endif %}
+    {% endif %}
+    {% if grafana_ds.jsonData is defined %}
+    jsonData:
+      {% if grafana_ds.url.startswith("https") %}
+      tlsAuth: true
+      {% endif %}
+      prometheusType: Prometheus
+      {% if grafana_ds.jsonData.prometheusVersion is defined and grafana_ds.jsonData.prometheusVersion|length > 0 %}
+      prometheusVersion: "{{ grafana_ds.jsonData.prometheusVersion }}"
+      {% else %}
+      prometheusVersion: "2.50.1"
+      {% endif %}
+      {% if grafana_ds.jsonData.cacheLevel is defined and grafana_ds.jsonData.cacheLevel|length > 0 %}
+      cacheLevel: {{ grafana_ds.jsonData.cacheLevel }}
+      {% else %}
+      cacheLevel: Medium
+      {% endif %}
+      {% if grafana_ds.url.startswith("https") %}
+      {% if grafana_ds.jsonData.serverName is defined and grafana_ds.jsonData.serverName|length > 0 %}
+      serverName: {{ grafana_ds.jsonData.serverName }}
+      {% else %}
+      serverName: "example.com"
+      {# server name that matches in certificate for tlsAuthWithCACert #}
+      {% endif %}
+      {% if grafana_ds.tlsAuthWithCACert is defined %}
+      tlsAuthWithCACert: {{ grafana_ds.tlsAuthWithCACert }}
+      {% else %}
+      tlsAuthWithCACert: false
+      {% endif %}
+      {% endif %}
+    {% endif %}

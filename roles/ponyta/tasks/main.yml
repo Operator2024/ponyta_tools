@@ -1,0 +1,192 @@
+---
+- name: Include vars file for Ponyta
+  tags:
+    - ponyta
+  include_vars:
+    file: main.yml
+
+- name: Creare user and group for Ponyta
+  tags:
+    - create_user
+    - ponyta
+  block:
+    - name: Get all existing users
+      ansible.builtin.getent:
+        database: passwd
+      when:
+        - "'getent_passwd' not in ansible_facts"
+
+    - name: Create group for Ponyta if not exists
+      ansible.builtin.group:
+        name: "{{ group }}"
+        state: present
+      with_items: "{{ ponyta_user_groups }}"
+      loop_control:
+        loop_var: group
+
+    - name: Create user for Ponyta if not exists
+      ansible.builtin.user:
+        name: "{{ ponyta_user }}"
+        comment: "User for running Ponyta services"
+        state: present
+        shell: /bin/bash
+        append: true
+        groups: "{{ ponyta_user_groups }}"
+      when:
+        - ponyta_user not in ansible_facts.getent_passwd
+
+- block:
+    - name: Include task for cloning Ponyta from git
+      tags:
+        - git
+        - force_update_git_repo
+        - ponyta
+      include_tasks: clone_from_git.yml
+      when: ( prometheus_enabled or snmp_exporter_enabled
+        or node_exporter_enabled or ping_exporter_enabled
+        or blackbox_exporter_enabled )
+
+- name: Create directories for Ponyta and its components
+  tags:
+    - create_dirs
+    - ponyta
+  become: true
+  block:
+    - name: Ensure Ponyta default directory exists
+      file:
+        path: "{{ ponyta_default_dir }}"
+        state: directory
+        mode: "0755"
+        owner: "{{ ponyta_user | default('root') }}"
+        group: "{{ ponyta_user | default('root') }}"
+
+    - name: Ensure Prometheus default directory exists
+      file:
+        path: "{{ prometheus_default_dir }}"
+        state: directory
+        mode: "0755"
+        owner: "{{ ponyta_user | default('root') }}"
+        group: "{{ ponyta_user | default('root') }}"
+
+    - name: Ensure Grafana default directory exists
+      file:
+        path: "{{ grafana_default_dir }}"
+        state: directory
+        mode: "0755"
+        owner: "{{ ponyta_user | default('root') }}"
+        group: "{{ ponyta_user | default('root') }}"
+
+    - name: Ensure Prometheus configuration directory exists
+      file:
+        path: "{{ prometheus_config_path }}"
+        state: directory
+        mode: "0755"
+        owner: "{{ ponyta_user | default('root') }}"
+        group: "{{ ponyta_user | default('root') }}"
+
+    - name: Ensure Ping Exporter default directory exists
+      file:
+        path: "{{ ping_exporter_default_dir }}"
+        state: directory
+        mode: "0755"
+        owner: "{{ ponyta_user | default('root') }}"
+        group: "{{ ponyta_user | default('root') }}"
+
+- block:
+    - name: Include task for snmp_targets
+      tags:
+        - ponyta
+      include_tasks:
+        file: targets/snmp_targets.yml
+        apply:
+          tags:
+            - always
+      loop:
+        - "snmp_targets"
+      loop_control:
+        loop_var: filename
+
+    - name: Include task for blackbox_targets deployment
+      tags:
+        - ponyta
+      include_tasks:
+        file: targets/blackbox_targets.yml
+        apply:
+          tags:
+            - always
+      loop:
+        - "blackbox_targets"
+      loop_control:
+        loop_var: filename
+
+    - name: Include task for ping_targets deployment
+      tags:
+        - ponyta
+      include_tasks:
+        file: configs/ping.yml
+        apply:
+          tags:
+            - always
+      loop:
+        - "ping"
+      loop_control:
+        loop_var: filename
+
+    - name: Get list of docker-compose services
+      tags:
+        - ponyta
+      shell: "docker compose config --services"
+      args:
+        chdir: "{{ ponyta_default_dir }}"
+      register: docker_compose_services
+      when: docker_compose_services | length == 0
+
+    - name: Include task for prometheus deployment
+      tags:
+        - ponyta
+      include_tasks: prometheus.yml
+      when: >
+        prometheus_enabled is defined or
+        snmp_exporter_enabled is defined or
+        node_exporter_enabled is defined or
+        ping_exporter_enabled is defined or
+        blackbox_exporter_enabled is defined
+
+    - name: Include task for grafana deployment
+      tags:
+        - ponyta
+      include_tasks: grafana.yml
+      when: grafana_enabled is defined
+
+    - name: Include task for dump prometheus credentials
+      tags:
+        - ponyta
+        - htpasswd
+      include_tasks: prometheus_credential.yml
+      when:
+        - prometheus_enabled is defined
+        - prometheus_enabled
+
+    - name: Update .env file for Ponyta(docker-compose)
+      tags:
+        - ponyta
+      lineinfile:
+        path: "{{ ponyta_default_dir }}/.env"
+        regexp: "^{{ item.key | upper }}="
+        line: "{{ item.key | upper }}={{ item.value }}"
+        state: present
+        owner: "{{ ponyta_user | default('root') }}"
+        group: "{{ ponyta_user | default('root') }}"
+        backrefs: yes
+      with_dict:
+        - "{{ env_vars | ansible.builtin.combine(env_vars_extra) }}"
+
+  rescue:
+    - name: Display error message (Recovery)
+      tags:
+        - ponyta
+      failed_when: true
+      debug:
+        msg:
+          - "Some tasks failed. Please check Docker presence and logs for details."
+          - "Failed tasks: {{ ansible_failed_task.name }}"

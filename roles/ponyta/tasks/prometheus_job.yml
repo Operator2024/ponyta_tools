@@ -1,0 +1,142 @@
+---
+# Task to deploy Prometheus jobs
+- block:
+    - name: Set facts for prometheus job
+      tags:
+        - ponyta
+      set_fact:
+        job_name: "{{ item.job_name }}"
+        job_enabled: "{{ item.enabled }}"
+
+    - name: Check the availability of facts
+      tags:
+        - ponyta
+      fail:
+        msg: "Missing facts: job_name, job_enabled"
+      failed_when: true
+      when:
+        - job_name is undefined or job_enabled is undefined
+
+- block:
+    - name: Get vars for prometheus job ({{ job_name }})
+      tags:
+        - ponyta
+      set_fact:
+        promjob: "{{ (prometheus_jobs | ansible.builtin.combine(prometheus_jobs_extra, recursive=true))[job_name] }}"
+      when: ('job_name in prometheus_jobs.keys()' or
+        'job_name in prometheus_jobs_extra.keys()')
+
+    - name: Set 'promjob_error' when job not found ({{ job_name }}) in prometheus_jobs
+      tags:
+        - ponyta
+      set_fact:
+        promjob_error: "Key '{{ job_name }}' not found in prometheus_jobs. Please check your configuration."
+      when:
+        - promjob is undefined
+
+    - name: Raise error when job not found ({{ job_name }}) in prometheus_jobs
+      tags:
+        - ponyta
+      fail:
+        msg: "{{ promjob_error }}"
+      when:
+        - promjob_error is defined
+
+    - name: Display Prometheus job variables for {{ job_name }}
+      tags:
+        - debug
+        - never
+      debug:
+        var: promjob
+      when:
+        - promjob is defined
+
+    - name: Generate Prometheus configuration ({{ job_name }})
+      tags:
+        - ponyta
+      template:
+        src: "{{ prometheus_job_templates[job_name] }}"
+        dest: "{{ prometheus_config_path }}/{{ job_name }}.yml"
+        trim_blocks: true
+        lstrip_blocks: true
+        mode: "0664"
+        owner: "{{ ponyta_user | default('root') }}"
+        group: "{{ ponyta_user | default('root') }}"
+      when: promjob is defined
+
+    - name: Set docker-compose services for UP
+      tags:
+        - ponyta
+      set_fact:
+        docker_compose_services_up: "{{ [service_name] + docker_compose_services_up | unique }}"
+      loop: "{{ item.service_name }}"
+      loop_control:
+        loop_var: service_name
+      when:
+        - item.service_name is defined
+        - item.service_name | length > 0
+
+    - name: Unset 'promjob' variable
+      tags:
+        - ponyta
+      set_fact:
+        promjob: undefined
+
+    - name: Unset 'job_name' variable
+      tags:
+        - ponyta
+      set_fact:
+        job_name: undefined
+
+    - name: Unset 'job_enabled' variable
+      tags:
+        - ponyta
+      set_fact:
+        job_enabled: undefined
+
+  rescue:
+    - name: Display error message (Recovery, {{ job_name }})
+      tags:
+        - debug
+        - never
+      failed_when: true
+      debug:
+        var: promjob_error
+      when: promjob_error is defined
+
+    - name: Display error message (Recovery)
+      tags:
+        - ponyta
+      failed_when: true
+      debug:
+        msg:
+          - "Some tasks failed. Please check prometheus job data and the logs for details."
+          - "Failed tasks: {{ ansible_failed_task.name }}"
+      when: promjob_error is defined
+
+  when:
+    - prometheus_jobs is defined
+    - prometheus_jobs_extra is defined
+    - job_enabled
+
+- block:
+    - name: Destroy Prometheus jobs from disk ({{ job_name }})
+      tags:
+        - ponyta
+      file:
+        path: "{{ prometheus_config_path }}/{{ job_name }}.yml"
+        state: absent
+
+    - name: Set docker-compose services for DOWN
+      tags:
+        - ponyta
+      set_fact:
+        docker_compose_services_down: "{{ [service_name] + docker_compose_services_down | unique }}"
+      loop: "{{ item.service_name }}"
+      loop_control:
+        loop_var: service_name
+      when:
+        - item.service_name is defined
+        - item.service_name | length > 0
+  when:
+    - not job_enabled

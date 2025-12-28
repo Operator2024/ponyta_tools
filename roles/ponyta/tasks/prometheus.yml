@@ -1,0 +1,50 @@
+---
+# Task to deploy Prometheus
+- block:
+    - name: Combine prometheus templates with extra (set_fact)
+      tags:
+        - ponyta
+      set_fact:
+        prometheus_job_templates: "{{ prometheus_job_templates | ansible.builtin.combine(prometheus_job_templates_extra) }}"
+
+    - name: Combine service patterns (set_fact)
+      tags:
+        - ponyta
+      set_fact:
+        prometheus_tmpl_pattern: "{{ prometheus_pattern ~ extra_pattern }}"
+        grafana_tmpl_pattern: "{{ grafana_pattern ~ extra_pattern }}"
+        ping_exporter_tmpl_pattern: "{{ ping_exporter_pattern ~ extra_pattern }}"
+        node_exporter_tmpl_pattern: "{{ node_exporter_pattern ~ extra_pattern }}"
+        blackbox_exporter_tmpl_pattern: "{{ '^blackbox' ~ extra_pattern }}"
+        snmp_exporter_tmpl_pattern: "{{ '^snmp' ~ extra_pattern }}"
+
+    - name: Include task for prometheus job
+      tags:
+        - ponyta
+      include_tasks: prometheus_job.yml
+      with_items:
+        - "{{ prometheus_job_templates.keys() | select('match', prometheus_tmpl_pattern ) |
+          map('community.general.dict_kv', 'job_name') |
+          map('combine', [{'enabled': prometheus_enabled,
+          'service_name': (docker_compose_services.stdout_lines | select('match', prometheus_pattern) ) }]) }}"
+
+        - "{{ prometheus_job_templates.keys() | select('match', blackbox_exporter_tmpl_pattern ) |
+          map('community.general.dict_kv', 'job_name') |
+          map('combine', [{'enabled': blackbox_exporter_enabled, 'service_name': (docker_compose_services.stdout_lines | select('match', blackbox_exporter_pattern) )}]) }}"
+
+        - "{{ prometheus_job_templates.keys() | select('match', snmp_exporter_tmpl_pattern ) |
+          map('community.general.dict_kv', 'job_name') |
+          map('combine', [{'enabled': snmp_exporter_enabled, 'service_name': (docker_compose_services.stdout_lines | select('match', snmp_exporter_pattern) )}]) }}"
+
+        - "{{ prometheus_job_templates.keys() | select('match', node_exporter_tmpl_pattern ) |
+          map('community.general.dict_kv', 'job_name') |
+          map('combine', [{'enabled': node_exporter_enabled, 'service_name': (docker_compose_services.stdout_lines | select('match', node_exporter_pattern) )}]) }}"
+
+        - "{{ prometheus_job_templates.keys() | select('match', ping_exporter_tmpl_pattern ) |
+          map('community.general.dict_kv', 'job_name') |
+          map('combine', [{'enabled': ping_exporter_enabled, 'service_name': (docker_compose_services.stdout_lines | select('match', ping_exporter_pattern) )}]) }}"
+      loop_control:
+        loop_var: item
+      when:
+        - prometheus_jobs is defined
+        - prometheus_jobs_extra is defined

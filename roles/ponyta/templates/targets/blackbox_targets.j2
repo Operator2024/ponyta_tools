@@ -1,0 +1,14 @@
+[
+  {
+    "labels": {
+        "job": "blackbox",
+        "status": "production",
+        "type": "external"
+    },
+    "targets": [
+    {% for target in blackbox_targets | mandatory("Variable 'blackbox_targets' must be defined") %}
+       "{{ target }}"{% if not loop.last %},{% endif +%}
+    {% endfor %}
+    ]
+  }
+]

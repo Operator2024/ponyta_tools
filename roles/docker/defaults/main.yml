@@ -1,0 +1,9 @@
+---
+# Docker ensure state: latest or absent
+docker_ensure: "latest"
+
+# System user to add to docker group
+docker_users: []
+
+# Use apt pinning to install specific versions of Docker packages
+use_apt_pin_version: true
