@@ -1,0 +1,14 @@
+dns:
+  nameserver: {{ ping_dns_nameserver | default('')}}
+  refresh: 30s
+options:
+  disableIPv6: {{ ping_options_disableIPv6 | lower }}
+ping:
+  history-size: {{ ping_ping_history_size }}
+  interval: {{ ping_ping_interval }}
+  payload-size: {{ ping_ping_payload_size }}
+  timeout: {{ ping_ping_timeout }}
+targets:
+{% for target in ping_targets | mandatory("Variable 'ping_targets' must be defined") %}
+  - {{ target }}
+{% endfor %}

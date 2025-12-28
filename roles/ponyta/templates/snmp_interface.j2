@@ -1,0 +1,33 @@
+scrape_configs:
+  - job_name: "{{ promjob.job_name }}"
+    {% if promjob.file_sd_configs | mandatory("Key 'file_sd_configs' must be defined") %}
+    file_sd_configs:
+      - files:
+        {% for file in promjob.file_sd_configs.files | mandatory("Key 'files' must be defined")  %}
+          - {{ file }}
+        {% endfor %}
+        {% if promjob.file_sd_configs.refresh_interval is defined %}
+        refresh_interval: {{ promjob.file_sd_configs.refresh_interval }}
+        {% else %}
+        refresh_interval: 120s
+        {% endif %}
+    {% endif %}
+    {% if promjob.scrape_interval is defined %}
+    scrape_interval: {{ promjob.scrape_interval }}
+    {% endif %}
+    {% if promjob.scrape_timeout is defined %}
+    scrape_timeout: {{ promjob.scrape_timeout }}
+    {% else %}
+    scrape_timeout: 10s
+    {% endif %}
+    metrics_path: /snmp
+    params:
+      auth: [public_v3]
+      module: [if_mib]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: 172.18.0.4:9116 # The SNMP exporter's real hostname:port.

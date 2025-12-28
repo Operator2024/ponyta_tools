@@ -1,0 +1,88 @@
+---
+# Task to deploy Grafana
+
+- block:
+    - name: Get vars for prometheus job (Grafana)
+      tags:
+        - ponyta
+      set_fact:
+        grafana: "{{ (prometheus_jobs | ansible.builtin.combine(prometheus_jobs_extra, recursive=true)).grafana }}"
+      when:
+        - prometheus_jobs is defined
+        - prometheus_jobs_extra is defined
+        - '"grafana" in prometheus_jobs.keys()'
+
+    - name: Display Grafana variables for prometheus job
+      tags:
+        - debug
+        - never
+      debug:
+        var: grafana
+      when:
+        - grafana is defined
+
+    - name: Generate Prometheus configuration
+      tags:
+        - ponyta
+      template:
+        src: grafana.j2
+        dest: "{{ prometheus_config_path }}/grafana.yml"
+        mode: "0664"
+        owner: "{{ ponyta_user | default('root') }}"
+        group: "{{ ponyta_user | default('root') }}"
+      when: grafana is defined
+
+    - name: Set docker-compose services for UP
+      tags:
+        - ponyta
+      set_fact:
+        docker_compose_services_up: "{{ ['grafana'] + docker_compose_services_up }}"
+  when:
+    - grafana_enabled
+
+- block:
+    - name: Destroy Prometheus jobs from  disk (Grafana)
+      tags:
+        - ponyta
+      file:
+        path: "{{ prometheus_config_path }}/grafana.yml"
+        state: absent
+
+    - name: Set docker-compose services for DOWN
+      tags:
+        - ponyta
+      set_fact:
+        docker_compose_services_down: "{{ ['grafana'] + docker_compose_services_down }}"
+  when:
+    - not grafana_enabled
+
+- block:
+    - name: Get datasource variables
+      tags:
+        - ponyta
+      set_fact:
+        grafana_datasources: "{{ (grafana_datasources | ansible.builtin.combine(grafana_datasources_extra, recursive=true)) }}"
+      when:
+        - grafana_datasources is defined
+        - grafana_datasources_extra is defined
+
+    - name: Include task for datasource deployment
+      tags:
+        - ponyta
+      include_tasks: grafana_ds.yml
+      loop: "{{ grafana_datasources.keys() | list }}"
+      loop_control:
+        loop_var: grafana_ds_name
+      when:
+        - grafana_datasources is defined
+        - grafana_datasources | length > 0
+
+  rescue:
+    - name: Display error message (Recovery)
+      tags:
+        - ponyta
+      failed_when: true
+      debug:
+        msg:
+          - "Some tasks failed. Please check datasource data and the logs for details."
+          - "Failed tasks: {{ ansible_failed_task.name }}"

@@ -1,0 +1,53 @@
+---
+- block:
+    # Task to deploy Grafana datasources
+    - name: Prepare Grafana datasource variables
+      tags:
+        - ponyta
+      set_fact:
+        grafana_ds: "{{ grafana_datasources[grafana_ds_name] if 'name' in grafana_datasources[grafana_ds_name] else grafana_datasources[grafana_ds_name] | ansible.builtin.combine({ 'name': grafana_ds_name }) }}"
+
+    - name: Display Grafana datasource variables
+      tags:
+        - debug
+        - never
+      debug:
+        var: grafana_ds
+
+    - name: Ensure Grafana datasource directory exists
+      become: true
+      tags:
+        - ponyta
+      file:
+        path: "{{ grafana_datasources_default_dir }}"
+        state: directory
+        mode: "0755"
+        owner: "{{ ponyta_user | default('root') }}"
+        group: "{{ ponyta_user | default('root') }}"
+
+    - name: Generate Grafana datasource configuration
+      tags:
+        - ponyta
+      template:
+        src: gf_prometheus_datasource.j2
+        dest: "{{ grafana_datasources_default_dir }}/{{ grafana_ds_name }}.yml"
+        #jinja2: trim_blocks:True lstrip_blocks:True keep_trailing_newline:True
+        trim_blocks: true
+        lstrip_blocks: true
+        mode: "0664"
+        owner: "{{ ponyta_user | default('root') }}"
+        group: "{{ ponyta_user | default('root') }}"
+      when:
+        - grafana_ds.type == 'prometheus'
+  when:
+    - grafana_enabled
+
+- block:
+    - name: Destroy Grafana datasource configuration
+      tags:
+        - ponyta
+      file:
+        path: "{{ grafana_datasources_default_dir }}/{{ grafana_ds_name }}.yml"
+        state: absent
+  when:
+    - not grafana_enabled

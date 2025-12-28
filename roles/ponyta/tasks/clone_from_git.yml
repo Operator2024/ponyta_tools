@@ -1,0 +1,85 @@
+---
+- name: Clone Git repository for Ponyta
+  become: true
+  block:
+    - name: Update apt cache
+      tags:
+        - git
+        - ponyta
+      apt:
+        update_cache: yes
+      when: ansible_pkg_mgr == "apt"
+
+    - name: Install git if not present
+      tags:
+        - git
+        - ponyta
+      package:
+        name: git
+        state: present
+      when: ansible_pkg_mgr != "unknown"
+
+    - name: Set global 'safe.directory' to prevent Git warnings
+      tags:
+        - git
+        - ponyta
+      ansible.builtin.git_config:
+        name: safe.directory
+        scope: global
+        value: "{{ ponyta_default_dir }}"
+      when: ansible_pkg_mgr != "unknown"
+
+    - name: Check if Git repository already exists
+      tags:
+        - git
+        - ponyta
+      stat:
+        path: "{{ git_clone_path }}/.git"
+      register: git_repo_exists
+
+    - name: Clone Git repository
+      tags:
+        - git
+        - ponyta
+      git:
+        repo: "{{ git_repo_url }}"
+        dest: "{{ git_clone_path }}"
+        version: "{{ git_branch }}"
+        clone: true
+        update: true
+        force: yes
+      when: not git_repo_exists.stat.exists
+
+    - name: Set mode for Git repository
+      tags:
+        - git
+        - ponyta
+      file:
+        path: "{{ git_clone_path }}"
+        owner: "{{ ponyta_user | default('root') }}"
+        group: "{{ ponyta_user | default('root') }}"
+        recurse: true
+      when: not git_repo_exists.stat.exists
+
+    - name: Update existing Git repository
+      tags:
+        - force_update_git_repo
+        - never
+      git:
+        clone: false
+        repo: "{{ git_repo_url }}"
+        dest: "{{ git_clone_path }}"
+        version: "{{ git_branch }}"
+        update: true
+        force: true
+      when: git_repo_exists.stat.exists
+  rescue:
+    - name: Failed to clone or update Git repository
+      tags:
+        - ponyta
+        - git
+      failed_when: true
+      debug:
+        msg:
+          - "Failed to clone or update the Git repository from {{ git_repo_url }} to {{ git_clone_path }}"
+          - "Reason: {{ ansible_failed_result.msg }}"

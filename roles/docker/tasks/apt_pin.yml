@@ -1,0 +1,28 @@
+---
+- block:
+    - name: "Set APT pin for Docker packages"
+      copy:
+        content: |
+          # This file is managed by Ansible
+          Package: {{ item.name }}
+          Pin: version {{ item.version }}
+          Pin-Priority: 1001
+        dest: "/etc/apt/preferences.d/50_{{ item.name | replace('.', '_') }}"
+        mode: "0664"
+        owner: root
+        group: root
+      with_items: "{{ docker_packages[ansible_distribution_release] }}"
+      become: true
+      when:
+        - use_apt_pin_version
+        - docker_ensure != "absent"
+
+    - name: "Remove APT pin for Docker packages"
+      file:
+        path: "/etc/apt/preferences.d/50_{{ item.name | replace('.', '_') }}"
+        state: "{{ docker_ensure }}"
+      with_items: "{{ docker_packages[ansible_distribution_release] }}"
+      become: true
+      when:
+        - docker_ensure == "absent"
+        - not use_apt_pin_version

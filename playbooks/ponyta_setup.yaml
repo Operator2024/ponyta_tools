@@ -1,0 +1,90 @@
+---
+- hosts: all
+  gather_facts: true
+  tasks:
+    - name: Print welome message
+      tags:
+        - always
+      debug:
+        msg: "Starting Ponyta setup playbook..."
+
+    - name: Include docker role
+      tags:
+        - docker
+      include_role:
+        name: docker
+        apply:
+          tags:
+            - always
+
+    - name: Include ponyta role
+      tags:
+        - ponyta
+        - git
+        - force_update_git_repo
+        - create_dirs
+        - htpasswd
+        - debug
+        - create_user
+      include_role:
+        name: ponyta
+
+    - name: Enable deployed docker services
+      tags:
+        - ponyta
+      community.docker.docker_compose_v2:
+        project_src: "{{ ponyta_default_dir }}"
+        state: present
+        services: "{{ docker_compose_services_up | difference(docker_compose_services_down) }}"
+      register: enable_services_result
+      when:
+        - docker_compose_services_up | length > 0
+        - "'docker_restart_services' not in ansible_run_tags"
+
+    - name: Restart deployed docker services
+      tags:
+        - ponyta
+        - docker_restart_services
+      community.docker.docker_compose_v2:
+        project_src: "{{ ponyta_default_dir }}"
+        state: restarted
+        services: "{{ docker_compose_services_up | difference(docker_compose_services_down) }}"
+      register: restart_services_result
+      when:
+        - docker_compose_services_up | length > 0
+        - "'docker_restart_services' in ansible_run_tags"
+
+    - name: Disable non deployed docker services (if enabled)
+      tags:
+        - ponyta
+      community.docker.docker_compose_v2:
+        project_src: "{{ ponyta_default_dir }}"
+        state: absent
+        services: "{{ docker_compose_services_down }}"
+      register: disable_services_result
+      when:
+        - docker_compose_services_down | length > 0
+
+    - name: Get running services
+      tags:
+        - ponyta
+      ansible.builtin.command:
+        cmd: "docker compose ps --services --filter 'status=running'"
+        chdir: "{{ ponyta_default_dir }}"
+      register: service_check
+
+    - name: Print running services
+      tags:
+        - debug
+      debug:
+        var: service_check.stdout_lines
+
+    - name: Checking running services (assert)
+      tags:
+        - ponyta
+      ansible.builtin.assert:
+        that:
+          - item in service_check.stdout_lines
+        fail_msg: "Service '{{ item }}' is not running!"
+        success_msg: "Service '{{ item }}' is running as expected."
+      loop: "{{ docker_compose_services_up }}"

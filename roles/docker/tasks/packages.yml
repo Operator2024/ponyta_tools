@@ -1,0 +1,26 @@
+---
+- block:
+    - name: Gather the package facts
+      become: true
+      ansible.builtin.package_facts:
+        manager: auto
+      when:
+        - docker_ensure is defined
+        - ansible_facts.packages is not defined
+
+    - name: Variable declaration
+      set_fact:
+        package_version_list: "{{ [] }}"
+      when:
+        - docker_ensure is defined
+        - ansible_facts.packages is defined
+        - package_version_list is not defined
+
+    - name: Check version of package ({{ item }})
+      set_fact:
+        package_version_list: "{{ package_version_list + ['Package ' + item + ' has version: ' + ansible_facts.packages[item][0].version] }}"
+      when:
+        - docker_ensure is defined
+        - ansible_facts.packages is defined
+        - item in ansible_facts.packages
+        - package_version_list is defined

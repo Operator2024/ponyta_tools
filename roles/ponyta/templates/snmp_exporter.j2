@@ -1,0 +1,14 @@
+scrape_configs:
+  # Global exporter-level metrics
+  - job_name: "{{ promjob.job_name }}"
+    {% if promjob.static_configs | mandatory("Key 'static_configs' must be defined") %}
+    static_configs:
+      - targets:
+        {% for target in promjob.static_configs.targets  %}
+          - {{ target }}
+        {% endfor %}
+        labels:
+        {% for label in promjob.static_configs.labels  %}
+          {{ label }}: {{ promjob.static_configs.labels[label] }}
+        {% endfor %}
+    {% endif %}

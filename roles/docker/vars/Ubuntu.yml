@@ -1,0 +1,35 @@
+---
+docker_repo_name: "ubuntu"
+docker_packages:
+  # 22.04 LTS
+  jammy:
+    - name: "docker-ce"
+      version: "5:27.4.1-1~ubuntu.22.04~jammy"
+    - name: "docker-ce-cli"
+      version: "5:27.4.1-1~ubuntu.22.04~jammy"
+    - name: "containerd.io"
+      version: "1.7.24-1"
+    - name: "docker-buildx-plugin"
+      version: "0.19.3-1~ubuntu.22.04~jammy"
+    - name: "docker-compose"
+      version: "1.29.2-1"
+    - name: "docker-compose-plugin"
+      version: "2.32.1-1~ubuntu.22.04~jammy"
+    - name: "docker-ce-rootless-extras"
+      version: "5:27.4.1-1~ubuntu.22.04~jammy"
+  # 24.04 LTS
+  noble:
+    - name: "docker-ce"
+      version: "5:29.1.2-1~ubuntu.24.04~noble"
+    - name: "docker-ce-cli"
+      version: "5:29.1.2-1~ubuntu.24.04~noble"
+    - name: "containerd.io"
+      version: "2.2.0-2~ubuntu.24.04~noble"
+    - name: "docker-buildx-plugin"
+      version: "0.30.1-1~ubuntu.24.04~noble"
+    - name: "docker-compose"
+      version: "1.29.2-1"
+    - name: "docker-compose-plugin"
+      version: "5.0.0-1~ubuntu.24.04~noble"
+    - name: "docker-ce-rootless-extras"
+      version: "5:29.1.2-1~ubuntu.24.04~noble"

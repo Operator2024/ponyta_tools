@@ -1,0 +1,13 @@
+[
+  {
+    "labels": {
+        "status": "production",
+        "type": "external"
+    },
+    "targets": [
+    {% for target in snmp_targets | mandatory("Variable 'snmp_targets' must be defined") %}
+       "{{ target }}"{% if not loop.last %},{% endif +%}
+    {% endfor %}
+    ]
+  }
+]

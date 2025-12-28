@@ -1,0 +1,28 @@
+---
+- block:
+    - name: Deploy Ping targets on disk
+      template:
+        src: "configs/{{ filename }}.j2"
+        dest: "{{ ping_exporter_default_dir }}/{{ filename }}.yml"
+        lstrip_blocks: true
+        trim_blocks: true
+        mode: "0664"
+        owner: "{{ ponyta_user | default('root') }}"
+        group: "{{ ponyta_user | default('root') }}"
+      when: ping_targets | length > 0
+
+    - name: Set fact after successfully Ping targets deployment
+      set_fact:
+        ping_targets_deployed: true
+      when: ping_targets | length > 0
+  when:
+    - ping_exporter_enabled
+    - ping_targets_deployed is not defined
+
+- block:
+    - name: Destroy Ping targets on disk
+      file:
+        path: "{{ ping_exporter_default_dir }}/{{ filename }}.yml"
+        state: absent
+  when:
+    - not ping_exporter_enabled

@@ -1,0 +1,190 @@
+---
+ponyta_user: bender
+ponyta_user_groups: ["docker", "{{ ponyta_user }}"]
+ponyta_default_dir: /opt/ponyta
+prometheus_default_dir: "{{ ponyta_default_dir }}/prometheus"
+prometheus_config_path: "{{ prometheus_default_dir }}/conf.d"
+grafana_default_dir: "{{ ponyta_default_dir }}/grafana"
+grafana_datasources_default_dir: "{{ grafana_default_dir }}/datasources"
+ping_exporter_default_dir: "{{ ponyta_default_dir }}/ping_exporter"
+
+# Prometheus users for basic authentication web.yml
+prometheus_users:
+  admin: defaultpassword
+prometheus_job_basic_auth_username: admin
+prometheus_web_filepath: "{{ prometheus_default_dir }}/web.yml"
+prometheus_credentials_filepath: "{{ prometheus_default_dir }}/secret.txt"
+prometheus_credentials_content: "{{ prometheus_users[prometheus_job_basic_auth_username] }}"
+prometheus_force_password_regenerate: false
+
+# Set of templates by job names (exclude grafana)
+prometheus_job_templates_extra: {}
+prometheus_job_templates:
+  prometheus: prometheus.j2
+  ping_exporter: ping_exporter.j2
+  node_exporter: node_exporter.j2
+  blackbox_exporter: blackbox_exporter.j2
+  blackbox: blackbox.j2
+  snmp_exporter: snmp_exporter.j2
+  snmp_interface: snmp_interface.j2
+  snmp_extended: snmp_extended.j2
+
+# Docker-compose services
+prometheus_enabled: true
+grafana_enabled: false
+ping_exporter_enabled: false
+node_exporter_enabled: false
+blackbox_exporter_enabled: false
+snmp_exporter_enabled: false
+
+# Pattern for docker-compose service names
+prometheus_pattern: "^prometheus"
+grafana_pattern: "^grafana"
+ping_exporter_pattern: "^ping_exporter"
+node_exporter_pattern: "^node_exporter"
+blackbox_exporter_pattern: "^blackbox_exporter"
+snmp_exporter_pattern: "^snmp_exporter"
+extra_pattern: "(.+|)"
+
+# SNMP targets configuration options
+snmp_targets: [""]
+# Blackbox targets configuration options
+blackbox_targets: [http://prometheus.io, https://prometheus.io]
+# Ping targets configuration options
+ping_targets: ["8.8.8.8", "8.8.4.4", "prometheus.io"]
+ping_dns_nameserver: "9.9.9.9"
+ping_ping_interval: 2s
+ping_ping_timeout: 5s
+ping_ping_history_size: 42
+ping_ping_payload_size: 120
+ping_options_disableIPv6: true
+
+default_domain: ""
+# Grafana/Prometheus vars for docker services (file .env)
+env_vars_extra: {}
+env_vars:
+  gf_external_port: 80
+  gf_security_admin_user: admin
+  gf_security_admin_password: defaultpassword
+  gf_server_name: "{{ default_domain }}"
+  gf_server_protocol: http
+  gf_server_cert_file: "/etc/grafana/certs/tls.crt"
+  gf_server_cert_key: "/etc/grafana/certs/tls.key"
+  gf_server_root_url: "/grafana"
+  gf_server_domain: "{{ default_domain }}"
+  gf_smtp_enabled: "false"
+  gf_smtp_host: ""
+  gf_smtp_user: ""
+  gf_smtp_password: ""
+  gf_smtp_from_address: ""
+  gf_smtp_from_name: Grafana
+  gf_smtp_skip_verify: "false"
+  gf_smtp_smarttls_policy: MandatoryStartTLS
+  prom_url: ""
+  prom_port: 9090
+  snmp_secret: defaultpassword
+  snmp_user: admin
+
+# Grafana datasource configuration options
+grafana_datasources_extra: {}
+grafana_datasources:
+  datasource:
+    name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    editable: "true"
+    isDefault: "true"
+    basicAuth: "true"
+    basicAuthUser: "{{ prometheus_job_basic_auth_username }}"
+    secureJsonData:
+      basicAuthPassword: defaultpassword
+    jsonData:
+      prometheusVersion: "2.50.1"
+      cachelevel: Meduim
+      serverName: "{{ env_vars_extra.gf_server_name }}"
+
+# Prometheus configuration options
+prometheus_jobs_extra: {}
+prometheus_jobs:
+  blackbox_exporter:
+    job_name: blackbox_exporter
+    file_sd_configs:
+      files:
+        - ../blackbox_targets.json
+  blackbox:
+    job_name: blackbox
+    static_configs:
+      targets: ["172.18.0.5:9115"]
+      labels:
+        status: production
+        type: internal
+  ping_exporter:
+    job_name: ping
+    static_configs:
+      targets: ["ping_exporter:9427"]
+      labels:
+        status: production
+        type: internal
+  node_exporter:
+    job_name: node
+    static_configs:
+      targets: ["172.18.0.1:9100"]
+      labels:
+        status: production
+        type: internal
+  snmp_exporter:
+    job_name: snmp_exporter
+    static_configs:
+      targets: ["snmp_exporter:9116"]
+      labels:
+        status: production
+        type: internal
+  snmp_interface:
+    job_name: snmp_interface
+    scrape_interval: 20s
+    scrape_timeout: 10s
+    file_sd_configs:
+      files:
+        - ../snmp_targets.json
+  snmp_extended:
+    job_name: snmp_extended
+    scrape_interval: 60s
+    scrape_timeout: 30s
+    file_sd_configs:
+      files:
+        - ../snmp_targets.json
+  prometheus:
+    job_name: prometheus
+    scrape_interval: 5s
+    scheme: http
+    server_name: null
+    basic_auth:
+      username: "{{ prometheus_job_basic_auth_username }}"
+      password: null
+      password_file: /etc/prometheus/secret.txt
+    static_configs:
+      targets: ["localhost:9090"]
+      labels:
+        status: production
+        type: internal
+  grafana:
+    job_name: "grafana"
+    scrape_interval: 5s
+    scheme: http
+    server_name: null
+    scrape_timeout: 5s
+    basic_auth:
+      username: admin
+      password: null
+      password_file: /etc/prometheus/secret.txt
+    static_configs:
+      targets: ["grafana:3000"]
+      labels:
+        status: production
+        type: internal
+
+# Git repository settings
+git_repo_url: https://github.com/Operator2024/Ponyta.git
+git_clone_path: "{{ ponyta_default_dir }}"
+git_branch: "master" # or "master", "develop", specific tag/branch

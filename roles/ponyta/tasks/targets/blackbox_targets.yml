@@ -1,0 +1,28 @@
+---
+- block:
+    - name: Deploy Blackbox targets on disk
+      template:
+        src: "targets/{{ filename }}.j2"
+        dest: "{{ prometheus_default_dir }}/{{ filename }}.json"
+        lstrip_blocks: true
+        trim_blocks: true
+        mode: "0664"
+        owner: "{{ ponyta_user | default('root') }}"
+        group: "{{ ponyta_user | default('root') }}"
+      when: blackbox_targets | length > 0
+
+    - name: Set fact after successfully Blackbox targets deployment
+      set_fact:
+        blackbox_targets_deployed: true
+      when: blackbox_targets | length > 0
+  when:
+    - blackbox_exporter_enabled
+    - blackbox_targets_deployed is not defined
+
+- block:
+    - name: Destroy Blackbox targets from disk
+      file:
+        path: "{{ prometheus_default_dir }}/{{ filename }}.json"
+        state: absent
+  when:
+    - not blackbox_exporter_enabled

@@ -1,0 +1,19 @@
+---
+docker_repo_name: "debian"
+docker_packages:
+  # 12 Bookworm
+  bookworm:
+    - name: "docker-ce"
+      version: "5:27.5.1-1~debian.12~bookworm"
+    - name: "docker-ce-cli"
+      version: "5:27.5.1-1~debian.12~bookworm"
+    - name: "containerd.io"
+      version: "1.7.29-1~debian.12~bookworm"
+    - name: "docker-buildx-plugin"
+      version: "0.19.3-1~debian.12~bookworm"
+    - name: "docker-compose-plugin"
+      version: "2.39.4-0~debian.12~bookworm"
+    - name: "docker-compose"
+      version: "1.29.2-3"
+    - name: "docker-ce-rootless-extras"
+      version: "5:27.5.1-1~debian.12~bookworm"
