@@ -7,3 +7,5 @@ docker_users: []
 
 # Use apt pinning to install specific versions of Docker packages
 use_apt_pin_version: true
+
+docker_networks: []

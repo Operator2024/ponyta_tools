@@ -54,7 +54,7 @@
 - name: Add Docker repository (Ubuntu/Debian)
   become: true
   apt_repository:
-    repo: "deb [arch=amd64] {{ docker_repo_url }}/{{ docker_distributions[ansible_distribution].repo_name  }} {{ ansible_distribution_release }} {{ docker_repo_component }}"
+    repo: "deb [arch=amd64] {{ docker_repo_url }}/{{ docker_distributions[ansible_distribution].repo_name }} {{ ansible_distribution_release }} {{ docker_repo_component }}"
     state: present
     filename: "docker"
     update_cache: true
@@ -112,3 +112,11 @@
     var: package_version_list
   when:
     - package_version_list is defined
+
+- name: Include task for creating Docker networks
+  include_tasks: network.yml
+  loop: "{{ docker_networks }}"
+  loop_control:
+    loop_var: network
+  when:
+    - docker_networks is defined
