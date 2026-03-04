@@ -88,22 +88,21 @@
   notify:
     - Enable and start Docker
 
-- name: Add users to docker group
-  become: true
-  user:
-    name: "{{ item }}"
-    groups: docker
-    append: true
-  with_items: "{{ docker_users }}"
+- name: Include task for creating Docker user and group
+  include_tasks: create_user.yml
   when:
-    - docker_users | length > 0
+    - docker_user | length > 0
+    - docker_ensure != "absent"
+
+- name: Import task for installing rootless Docker
+  import_tasks: rootless.yml
+  when:
+    - docker_rootless
     - docker_ensure != "absent"
 
 - name: Include task for checking Docker installation
   include_tasks: packages.yml
   with_items: "{{ docker_packages_fallback }}"
-  when:
-    - docker_ensure != "absent"
 
 - name: Display installation status
   tags:
