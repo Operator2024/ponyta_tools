@@ -1,0 +1,16 @@
+{% from 'functions/http.j2' import render_location %}
+{% set site_safe = http_site | replace('.', '_') %}
+{% for server_params in nginx_http_sites[http_site] %}
+server {
+    {% for op_name, op_value in server_params.items() if op_name != 'https' %}
+    {% if op_value is not mapping %}
+{# {{ op_value | type_debug }} #}
+    {{ op_name }} {{ op_value }};
+    {% else %}
+    {% for path, config in op_value.items() %}
+    {{ render_location(path, config) | indent(4, False) }}
+    {% endfor -%}
+    {% endif -%}
+    {% endfor -%}
+}
+{% endfor -%}
