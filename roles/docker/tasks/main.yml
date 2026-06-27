@@ -16,6 +16,7 @@
     - ansible_distribution in docker_distributions.keys()
 
 - name: Install Docker dependencies
+  become: true
   package:
     name: "{{ docker_distributions[ansible_distribution].dependencies }}"
     state: present
