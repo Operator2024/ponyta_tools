@@ -124,6 +124,7 @@ nginx_stream_map:
       "example.com": "example_server"
       default: '""'
 ```
+
 ### 4. Другие переменные
 
 * nginx_user (string) - Имя пользователя от которого запускается/разворачивается модуль
