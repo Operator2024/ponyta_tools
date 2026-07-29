@@ -1,0 +1,49 @@
+{% set wg_env_vars = (wg_env_vars | combine(wg_env_vars_extra)) %}
+
+volumes:
+  etc_wireguard:
+
+services:
+  {{ service_name }}:
+    environment:
+      {% for name, value in wg_env_vars.items() %}
+      {% if name == "password_hash" %}
+      - {{ name | upper }}={{ value | password_hash('bcrypt', rounds=10) |  replace('$', '$$') }}
+      {% elif 'ext' not in name %}
+      - {{ name | upper }}={{ value }}
+      {% endif %}
+      {% endfor %}
+
+    image: ghcr.io/wg-easy/wg-easy:{{ image_version }}
+    container_name: {{ service_name }}
+    networks:
+      - wg-easy-net
+    volumes:
+      - etc_wireguard:/etc/wireguard
+    ports:
+      - "{{ wg_env_vars.get('port_ext') }}:{{ wg_env_vars.get('port') }}/tcp"
+      - "{{ wg_env_vars.get('wg_port_ext') }}:{{ wg_env_vars.get('wg_port') }}/udp"
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+      # - NET_RAW # ⚠️ Uncomment if using Podman
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+
+networks:
+  wg-easy-net:
+    driver: bridge
+    {% if wg_shared_network %}
+    external: true
+    name: {{ wg_shared_network_name }}
+    {% else %}
+    name: {{ wg_network_name }}
+    ipam:
+      driver: default
+      config:
+        - subnet: {{ wg_network_subnet }}
+          ip_range: {{ wg_network_range }}
+          gateway: {{ wg_network_gateway }}
+    {% endif %}

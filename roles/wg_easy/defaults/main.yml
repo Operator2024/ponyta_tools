@@ -1,0 +1,32 @@
+---
+wg_user: root
+wg_easy_enabled: false
+wg_default_dir: /opt/docker_apps/wg_easy
+wg_compose_file: "{{ wg_default_dir }}/docker-compose.yml"
+
+# Git repository settings
+git_repo_url: https://github.com/wg-easy/wg-easy.git
+git_clone_path: "{{ wg_default_dir }}"
+git_branch: "v14" # or "master", "develop", specific tag/branch
+
+# Environment variables for docker-compose
+service_name: wg_easy
+image_version: "14"
+
+wg_network_name: wg-easy-net
+wg_network_subnet: 172.20.0.0/16
+wg_network_range: 172.20.5.0/24
+wg_network_gateway: 172.20.5.254
+
+wg_shared_network: false
+wg_shared_network_name: shared-net
+
+wg_env_vars_extra: {}
+wg_env_vars:
+  lang: en
+  wg_host: vpn.example.com
+  port: 51821
+  port_ext: 51821
+  wg_port: 51820
+  wg_port_ext: 51820
+  password_hash: "wg_easy_default_PSWD"

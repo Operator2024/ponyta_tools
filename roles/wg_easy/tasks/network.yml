@@ -1,0 +1,17 @@
+---
+- block:
+    - name: Checking network subnet format
+      ansible.builtin.assert:
+        that:
+          - wg_network_subnet | ansible.utils.ipaddr('ipv4')
+        fail_msg: "Ошибка: Переменная wg_network_subnet имеет неверный IPv4 формат!"
+    - name: Checking network range format and inclusion in subnet
+      ansible.builtin.assert:
+        that:
+          - wg_network_range | ansible.utils.ipaddr(wg_network_subnet)
+        fail_msg: "Ошибка: Переменная wg_network_range имеет неверный IPv4 формат или не входит в wg_network_subnet!"
+    - name: Checking network gateway format and inclusion in range
+      ansible.builtin.assert:
+        that:
+          - wg_network_gateway | ansible.utils.ipaddr(wg_network_range)
+        fail_msg: "Ошибка: Переменная wg_network_gateway имеет неверный IPv4 формат или не входит в wg_network_range!"
