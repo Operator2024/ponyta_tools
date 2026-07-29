@@ -1,0 +1,14 @@
+{# Macros for create .env enviromnent file #}
+{% macro render_env_variables(name, value) %}
+{{ name | upper }}={{ value }}
+{% endmacro %}
+
+{% macro render_env_file() %}
+{% for name, value in (nginx_env_vars | combine(nginx_env_vars_extra)).items() %}
+{{ render_env_variables(name, value) -}}
+{% endfor %}
+{% for port in nginx_ports_vars %}
+{{ port.name | to_compose_vars('container', False) | mandatory }}={{ port.container | mandatory }}
+{{ port.name | to_compose_vars('host', False) | mandatory }}={{ port.host | mandatory }}
+{% endfor %}
+{% endmacro %}

@@ -1,0 +1,18 @@
+{# DESCRIPTION #}
+{% from 'functions/common.j2' import render_inner_params, render_sequence %}
+
+{% macro render_stream_common(params) %}
+{% for name, value in params.items() %}
+{% if value is mapping %}
+{{- render_inner_params(name, value) -}}
+{% elif value is sequence and value is not string and name != "include" %}
+{{ render_sequence(name, value) }}
+{% elif value is sequence and name == "include" %}
+{% set modified_value = value |map('regex_replace', '^', nginx_internal_template_dir ~ 'stream/')  %}
+{{ render_sequence(name, modified_value) }}
+{% else %}
+{{ name }} {{ value }};
+{% endif %}
+{% endfor %}
+{% endmacro %}
+{# nginx_internal_template_dir #}

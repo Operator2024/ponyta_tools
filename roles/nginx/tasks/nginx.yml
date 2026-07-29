@@ -1,0 +1,59 @@
+---
+- block:
+    - name: Generate nginx.conf from template
+      tags:
+        - nginx_generate
+      template:
+        src: nginx.conf.j2
+        dest: "{{ nginx_default_dir }}/nginx.conf"
+        trim_blocks: true
+        lstrip_blocks: true
+        mode: "0664"
+        owner: "{{ oricorio_user | default('root') }}"
+        group: "{{ oricorio_user | default('root') }}"
+
+    - name: Generate http sites from template
+      tags:
+        - nginx_generate
+      template:
+        src: default_http.j2
+        dest: "{{ nginx_http_template_dir }}/{{ http_site | replace('.', '_') }}.conf.template"
+        trim_blocks: true
+        lstrip_blocks: true
+        mode: "0664"
+        owner: "{{ oricorio_user | default('root') }}"
+        group: "{{ oricorio_user | default('root') }}"
+      with_items: "{{ nginx_http_sites | list }}"
+      loop_control:
+        loop_var: http_site
+
+    - name: Generate stream sites from template
+      tags:
+        - nginx_generate
+      template:
+        src: default_stream.j2
+        dest: "{{ nginx_stream_template_dir }}/{{ stream_site | replace('.', '_') }}.conf.template"
+        trim_blocks: true
+        lstrip_blocks: true
+        mode: "0664"
+        owner: "{{ oricorio_user | default('root') }}"
+        group: "{{ oricorio_user | default('root') }}"
+      with_items: "{{ nginx_stream_sites | list }}"
+      loop_control:
+        loop_var: stream_site
+
+    - name: Set docker-compose services for UP
+      tags:
+        - nginx_docker_up
+        - nginx_docker_restart
+      set_fact:
+        docker_compose_services_up: "{{ [service_name] + docker_compose_services_up | unique }}"
+      when: nginx_enabled
+
+    - name: Set docker-compose services for DOWN
+      tags:
+        - nginx_docker_down
+        - nginx_docker_restart
+      set_fact:
+        docker_compose_services_down: "{{ [service_name] + docker_compose_services_down | unique }}"
+      when: not nginx_enabled

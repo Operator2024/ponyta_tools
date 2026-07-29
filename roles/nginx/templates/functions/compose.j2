@@ -1,0 +1,10 @@
+{# Macros for used in compose file #}
+{% macro render_ports(ports, env=False) %}
+{% for port in ports %}
+{% if env %}
+- {{ port.name | to_compose_vars('container', False) | mandatory }}={{ port.name | to_compose_vars('container') | mandatory }}
+{% else %}
+- {{ port.name | to_compose_vars('host') | mandatory }}:{{ port.name | to_compose_vars('container') | mandatory }}/{{ port.protocol | mandatory }}
+{% endif %}
+{% endfor %}
+{% endmacro %}

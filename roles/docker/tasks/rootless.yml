@@ -1,0 +1,73 @@
+---
+- name: Rootless pre installation checks
+  become: true
+  block:
+    - name: Stop and disable Docker services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - docker.service
+        - docker.socket
+      ignore_errors: true
+      register: docker_stop_result
+
+    - name: Remove Docker socket
+      ansible.builtin.file:
+        path: /var/run/docker.sock
+        state: absent
+      when: docker_stop_result is succeeded
+
+    - name: Get docker user info
+      ansible.builtin.user:
+        name: "{{ docker_user }}"
+      register: rootless_user
+
+    - name: Check if Docker socket exists for rootless user
+      ansible.builtin.stat:
+        path: "/run/user/{{ rootless_user.uid }}/docker.sock"
+      register: docker_sock
+
+    - name: Enable linger for rootless user
+      ansible.builtin.command:
+        cmd: "loginctl enable-linger {{ rootless_user.name }}"
+        creates: "/var/lib/systemd/linger/{{ rootless_user.name }}"
+
+- name: Create temp directory for user
+  become: true
+  ansible.builtin.file:
+    path: "/tmp/.ansible-{{ rootless_user.name }}"
+    state: directory
+    owner: "{{ rootless_user.name }}"
+    group: "{{ rootless_user.group }}"
+    mode: "0700"
+  when: rootless_user is defined
+
+- name: Install rootless Docker
+  become: true
+  become_user: "{{ rootless_user.name }}"
+  vars:
+    ansible_remote_tmp: "/tmp/.ansible-{{ rootless_user.name }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ rootless_user.uid }}"
+    PATH: "/usr/bin:/bin:/usr/sbin:/sbin"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ rootless_user.uid }}/bus"
+  command: dockerd-rootless-setuptool.sh install
+  register: install_result
+  when:
+    - rootless_user
+    - not docker_sock.stat.exists
+
+- name: Added Docker environment variables to .bashrc for rootless user
+  ansible.builtin.lineinfile:
+    path: "/home/{{ rootless_user.name }}/.bashrc"
+    line: "{{ item }}"
+    create: yes
+    owner: "{{ rootless_user.name }}"
+    group: "{{ rootless_user.group }}"
+    mode: "0644"
+  loop:
+    - "export PATH=/home/{{ rootless_user.name }}/bin:$PATH"
+    - "export DOCKER_HOST=unix:///run/user/{{ rootless_user.uid }}/docker.sock"
+  when: install_result.changed

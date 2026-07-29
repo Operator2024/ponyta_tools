@@ -1,0 +1,97 @@
+---
+- name: Include role dependencies
+  tags:
+    - docker
+  import_role:
+    name: docker
+
+- block:
+    - name: Create nginx directories
+      tags:
+        - nginx_dirs
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+        owner: "{{ nginx_user }}"
+        group: "{{ nginx_user }}"
+      with_items:
+        - "{{ nginx_default_dir }}"
+        - "{{ nginx_template_dir }}"
+        - "{{ nginx_http_template_dir }}"
+        - "{{ nginx_stream_template_dir }}"
+        - "{{ nginx_certs_dir }}"
+        - "{{ nginx_internal_template_dir }}"
+
+- name: Import tasks for deploying docker files
+  import_tasks: docker.yml
+  vars:
+    service_name: nginx
+
+- name: Import tasks for deploying nginx configuration
+  import_tasks: nginx.yml
+  vars:
+    service_name: nginx
+
+- block:
+    - name: Enable deployed docker services
+      tags:
+        - nginx_docker_up
+      community.docker.docker_compose_v2:
+        project_src: "{{ nginx_default_dir }}"
+        state: present
+        services: "{{ docker_compose_services_up | difference(docker_compose_services_down) }}"
+      register: enable_services_result
+      when:
+        - docker_compose_services_up | length > 0
+        - "'nginx_docker_restart' not in ansible_run_tags"
+        - nginx_enabled
+
+    - name: Disable docker services (if enabled)
+      tags:
+        - nginx_docker_down
+      community.docker.docker_compose_v2:
+        project_src: "{{ nginx_default_dir }}"
+        state: absent
+        services: "{{ docker_compose_services_down }}"
+      register: disable_services_result
+      when:
+        - docker_compose_services_down | length > 0
+        - not nginx_enabled
+
+    - name: Restart deployed docker services
+      tags:
+        - nginx_docker_restart
+      community.docker.docker_compose_v2:
+        project_src: "{{ nginx_default_dir }}"
+        state: restarted
+        services: "{{ docker_compose_services_up | difference(docker_compose_services_down) }}"
+      register: restart_services_result
+      when:
+        - docker_compose_services_up | length > 0
+        - "'nginx_docker_restart' in ansible_run_tags"
+        - nginx_enabled
+
+    - name: Get running services
+      tags:
+        - always
+      ansible.builtin.command:
+        cmd: "docker compose ps --services --filter 'status=running'"
+        chdir: "{{ nginx_default_dir }}"
+      register: service_check
+
+    - name: Display running services
+      tags:
+        - debug
+      debug:
+        var: service_check.stdout_lines
+
+    - name: Checking running services (assert)
+      tags:
+        - always
+      ansible.builtin.assert:
+        that:
+          - item in service_check.stdout_lines
+        fail_msg: "Service '{{ item }}' is not running!"
+        success_msg: "Service '{{ item }}' is running as expected."
+      loop: "{{ docker_compose_services_up }}"

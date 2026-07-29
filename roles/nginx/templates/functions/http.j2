@@ -1,0 +1,11 @@
+{% from 'functions/common.j2' import render_params %}
+
+{% macro render_location(path, config) -%}
+    {% if config.modifier is defined +%}
+location {{ config.modifier }} {{ path }} {
+    {% else +%}
+location {{ path }} {
+    {% endif %}
+{{ render_params(config, 4) }}
+{%- if true %}}{% endif %}
+{% endmacro %}

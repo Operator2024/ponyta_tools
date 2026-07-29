@@ -16,6 +16,7 @@
     - ansible_distribution in docker_distributions.keys()
 
 - name: Install Docker dependencies
+  become: true
   package:
     name: "{{ docker_distributions[ansible_distribution].dependencies }}"
     state: present
@@ -54,7 +55,7 @@
 - name: Add Docker repository (Ubuntu/Debian)
   become: true
   apt_repository:
-    repo: "deb [arch=amd64] {{ docker_repo_url }}/{{ docker_distributions[ansible_distribution].repo_name  }} {{ ansible_distribution_release }} {{ docker_repo_component }}"
+    repo: "deb [arch=amd64] {{ docker_repo_url }}/{{ docker_distributions[ansible_distribution].repo_name }} {{ ansible_distribution_release }} {{ docker_repo_component }}"
     state: present
     filename: "docker"
     update_cache: true
@@ -88,22 +89,21 @@
   notify:
     - Enable and start Docker
 
-- name: Add users to docker group
-  become: true
-  user:
-    name: "{{ item }}"
-    groups: docker
-    append: true
-  with_items: "{{ docker_users }}"
+- name: Include task for creating Docker user and group
+  include_tasks: create_user.yml
   when:
-    - docker_users | length > 0
+    - docker_user | length > 0
+    - docker_ensure != "absent"
+
+- name: Import task for installing rootless Docker
+  import_tasks: rootless.yml
+  when:
+    - docker_rootless
     - docker_ensure != "absent"
 
 - name: Include task for checking Docker installation
   include_tasks: packages.yml
   with_items: "{{ docker_packages_fallback }}"
-  when:
-    - docker_ensure != "absent"
 
 - name: Display installation status
   tags:
@@ -112,3 +112,11 @@
     var: package_version_list
   when:
     - package_version_list is defined
+
+- name: Include task for creating Docker networks
+  include_tasks: network.yml
+  loop: "{{ docker_networks }}"
+  loop_control:
+    loop_var: network
+  when:
+    - docker_networks is defined

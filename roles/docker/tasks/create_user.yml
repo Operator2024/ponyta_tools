@@ -1,0 +1,34 @@
+---
+- name: Get all existing users
+  ansible.builtin.getent:
+    database: passwd
+  when:
+    - "'getent_passwd' not in ansible_facts"
+
+- name: Set fact for user (rootless)
+  ansible.builtin.set_fact:
+    docker_user: "{{ docker_user + '_rootless' }}"
+    docker_group: ["{{ docker_user }}"]
+  when:
+    - docker_rootless
+
+- name: Creare user and group for docker
+  block:
+    - name: Create group for docker
+      ansible.builtin.group:
+        name: "{{ group }}"
+        state: present
+      with_items: "{{ docker_group }}"
+      loop_control:
+        loop_var: group
+
+    - name: Create user for docker
+      ansible.builtin.user:
+        name: "{{ docker_user }}"
+        comment: "User for docker services"
+        state: present
+        shell: /bin/bash
+        append: true
+        groups: "{{ docker_group }}"
+      when:
+        - docker_user not in ansible_facts.getent_passwd

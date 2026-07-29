@@ -1,0 +1,76 @@
+---
+nginx_user: bender
+nginx_default_dir: /opt/docker_apps/nginx
+nginx_template_dir: "{{ nginx_default_dir }}/templates"
+nginx_http_template_dir: "{{ nginx_template_dir }}/http"
+nginx_stream_template_dir: "{{ nginx_template_dir }}/stream"
+nginx_certs_dir: "{{ nginx_default_dir }}/certs"
+nginx_internal_template_dir: "/etc/nginx/conf.d/"
+
+nginx_enabled: true
+
+# Section for 'services -> nginx -> env'
+# Environment variables for docker-compose
+nginx_env_vars_extra: {}
+nginx_env_vars:
+  allowed_nginx_ips: "0.0.0.0/0"
+  nginx_domain: "example.com"
+
+# Section for 'services -> nginx -> ports'
+nginx_ports_vars:
+  - name: http_port
+    host: 80
+    container: 80
+    protocol: tcp
+
+nginx_http_sites:
+  example.com:
+    - access_log: /var/log/nginx/access.log combined
+      listen: $HTTP_PORT_CONTAINER
+      server_name: example.com
+      locations:
+        /:
+          modifier: "="
+          if:
+            - rule: "$bad_bot != 0"
+              action: "return 444"
+          return: 301 https://google.com/
+
+nginx_http_map:
+  bad_bot:
+    source: "$http_user_agent"
+    mappings:
+      default: 0
+      "~*badbot": 1
+      "~*curl": 1
+
+nginx_http_upstream:
+  example:
+    servers:
+      - server: 127.0.0.1:9091
+        max_fails: 1
+        max_conns: 30
+    resolver: "127.0.0.1 ipv6=off valid=300s"
+    resolver_timeout: 5s
+
+nginx_stream_common:
+  log_format:
+    basic: "'$remote_addr [$time_local] $protocol $status $bytes_sent $bytes_received $session_time'"
+  access_log: "/var/log/nginx/access.log basic"
+  include:
+    - "example.conf"
+
+nginx_stream_sites:
+  example:
+    listen: "50157 udp"
+    proxy_pass: "example_server"
+    proxy_timeout: "30s"
+    proxy_connect_timeout: "3s"
+
+nginx_stream_upstream:
+  example_server:
+    servers:
+      - server: "127.0.0.1:9091"
+        max_conns: 20
+
+nginx_stream_map: ~
