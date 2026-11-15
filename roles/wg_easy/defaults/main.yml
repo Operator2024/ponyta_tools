@@ -4,16 +4,36 @@ wg_easy_enabled: false
 wg_default_dir: /opt/docker_apps/wg_easy
 wg_compose_file: "{{ wg_default_dir }}/docker-compose.yml"
 
+# Service verification settings
+wg_service_stabilize_seconds: 10 # Pause before status check (lets containers that crash on startup fail first)
+wg_service_check_retries: 3      # Number of status re-checks (service must still be running on the last one)
+wg_service_check_delay: 5        # Seconds between status re-checks
+
+# WireGuard Easy version map: image tag -> git branch/tag + compose template
+wg_easy_version_map:
+  "latest":
+    git: "v14"
+    compose_template: compose.yml.j2
+  "14":
+    git: "v14"
+    compose_template: compose.yml.j2
+  "15":
+    git: "v15.0.0"
+    compose_template: compose_v15.yml.j2
+  "15.4.0":
+    git: "v15.4.0"
+    compose_template: compose_v15.yml.j2
+
 # Git repository settings
 git_repo_url: https://github.com/wg-easy/wg-easy.git
 git_clone_path: "{{ wg_default_dir }}"
-git_branch: "v14" # or "master", "develop", specific tag/branch
+git_branch: "{{ wg_easy_version_map[image_version].git }}"
 
 # Environment variables for docker-compose
-service_name: wg_easy
-image_version: "14"
+service_name: wg-easy
+image_version: "14" # Default version
 
-wg_network_name: wg-easy-net
+wg_network_name: "{{ service_name }}-net"
 wg_network_subnet: 172.20.0.0/16
 wg_network_range: 172.20.5.0/24
 wg_network_gateway: 172.20.5.254
@@ -30,3 +50,25 @@ wg_env_vars:
   wg_port: 51820
   wg_port_ext: 51820
   password_hash: "wg_easy_default_PSWD"
+
+# Variables for wg_easy 15 and later versions
+wg_env_vars_15:
+  experimental_awg: false
+  override_auto_awg: null # awg or wg
+  insecure: false # Allow HTTP mode (not recommended for production)
+  disable_ipv6: true
+  disable_version_check: false
+  disable_password_auth: false
+  port: 51821
+
+# Variables for initialization only (once run)
+wg_env_vars_init_extra: {}
+wg_env_vars_init:
+  init_enabled: false
+  init_username: admin
+  init_password: "wg_easy_default_PSWD"
+  init_host: vpn.example.com
+  init_port: 51820
+  init_dns: 1.1.1.1,8.8.8.8
+  init_ipv4_cidr: 10.8.0.0/24
+  init_allowed_ips: 0.0.0.0/0

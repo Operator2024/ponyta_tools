@@ -56,8 +56,8 @@
         - wg_easy
       file:
         path: "{{ git_clone_path }}"
-        owner: "{{ wg_easy_user | default('root') }}"
-        group: "{{ wg_easy_user | default('root') }}"
+        owner: "{{ wg_user | default('root') }}"
+        group: "{{ wg_user | default('root') }}"
         recurse: true
       when: not git_repo_exists.stat.exists
 
