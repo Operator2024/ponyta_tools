@@ -1,44 +1,94 @@
+# WireGuard Easy
 
-# Wireguard Easy
->
-> Ansible role for configuration wireguard. Or wrapper for project [wg-easy](https://github.com/wg-easy/wg-easy)
+> Ansible-роль для деплоя [wg-easy](https://github.com/wg-easy/wg-easy) — простого веб-интерфейса для управления WireGuard VPN в Docker.
 
-## Settings
+> 🇬🇧 **English version:** [README_EN.md](README_EN.md)
 
-Для конфигурации роли доступны следующие переменные
+## Quick Start
 
-| Name                         | Description                                                                            | Default                                   |
-|:-----------------------------|:---------------------------------------------------------------------------------------|:------------------------------------------|
-| **`wg_user`**                | System user account under which the environment is configured                          | `root`                                    |
-| **`wg_easy_enabled`**        | Toggle switch to control whether the WireGuard Docker services should be running       | `false`                                   |
-| **`wg_default_dir`**         | Base installation directory on the remote host for application files                   | `/opt/docker_apps/wg_easy`                |
-| **`wg_compose_file`**        | Absolute path to the targeted `docker-compose.yml` configuration file                  | `{{ wg_default_dir }}/docker-compose.yml` |
-| **`git_repo_url`**           | URL of the official wg-easy Git repository to source files from                        | `https://github.com`                      |
-| **`git_clone_path`**         | Destination directory on the host where the Git repository will be cloned              | `{{ wg_default_dir }}`                    |
-| **`git_branch`**             | Specific branch, tag, or version release to checkout from Git                          | `v14`                                     |
-| **`service_name`**           | Designated identifier for the core service inside Docker Compose                       | `wg_easy`                                 |
-| **`image_version`**          | Tag version of the Docker image used to build the container                            | `14`                                      |
-| **`wg_network_name`**        | Name of the primary dedicated Docker network created for the VPN                       | `wg-easy-net`                             |
-| **`wg_network_subnet`**      | Total IP subnet allocated for the Docker network infrastructure                        | `172.20.0.0/16`                           |
-| **`wg_network_range`**       | IP range scope assigned specifically for routing VPN client connections                | `172.20.5.0/24`                           |
-| **`wg_network_gateway`**     | Assigned gateway IP address for the internal container network                         | `172.20.5.254`                            |
-| **`wg_shared_network`**      | Toggle to link the container to an external shared proxy network                       | `false`                                   |
-| **`wg_shared_network_name`** | Name of the external shared network (the missing dependency causing the earlier error) | `shared-net`                              |
-| **`wg_env_vars_extra`**      | Dictionary block for declaring custom container environment variables                  | `{}`                                      |
-| **`port`**                         | TCP port for Web UI inside container container                                                               | 51821                                     |
-| **`port_ext`**                     | TCP port for Web UI outside container container                                                               | 51821                                     |
-| **`wg_port`**                      | UDP port for 'wireguard' inside containercontainer                                                               | 51820                                     |
-| **`wg_port_ext`**                  | UDP port for 'wireguard' outside container container                                                               | 51820                                     |
-| **`password_hash`**                | Clear password for web UI                                                              | wg_easy_default_PSWD                      |
+Минимальный набор переменных для деплоя (`host_vars/<host>.yaml`):
 
-The full list of parameters that can be specified (depending on the version of wg-easy) in wg_env_vars_extra -> <https://github.com/wg-easy/wg-easy/blob/v14.0.0/README.md#options>
+```yaml
+# Включить сервис
+wg_easy_enabled: true
 
-Some parameters have a default value, eg.
+# Версия образа wg-easy: latest, 14, 15, 15.4.0
+image_version: "14"
 
-* lang - en
-* wh_host - vpn.example.com
-* port - 51821
-* port_ext - 51821
-* wg_port - 51820
-* wg_port_ext - 51820
-* password_hash - wg_easy_default_PSWD
+# Основные переменные окружения (v14)
+wg_env_vars_extra:
+  wg_host: vpn.example.com        # домен или IP сервера, на котором деплоится VPN
+  password_hash: <your_password>  # пароль от веб-интерфейса
+  lang: ru
+```
+
+Запуск:
+
+```bash
+ansible-playbook -i <path_to_your_inventory> playbooks/<playbook>.yaml
+```
+
+После деплоя веб-интерфейс будет доступен на порту `51821` (TCP), WireGuard — на порту `51820` (UDP).
+
+## Основные переменные роли
+
+| Name | Description | Default |
+|:-----|:------------|:--------|
+| **`wg_easy_enabled`** | Включить/выключить сервис WireGuard (Docker Compose) | `false` |
+| **`image_version`** | Версия Docker-образа wg-easy. Доступны: `latest`, `14`, `15`, `15.4.0` | `14` |
+| **`wg_user`** | Системный пользователь, от которого деплоится сервис | `root` |
+| **`wg_default_dir`** | Каталог установки на удалённом хосте | `/opt/docker_apps/wg_easy` |
+| **`wg_compose_file`** | Путь до итогового `docker-compose.yml` | `{{ wg_default_dir }}/docker-compose.yml` |
+| **`service_name`** | Имя сервиса в Docker Compose | `wg-easy` |
+| **`wg_shared_network`** | Подключить контейнер к внешней общей Docker-сети | `false` |
+| **`wg_shared_network_name`** | Имя внешней общей сети (используется при `wg_shared_network: true`) | `shared-net` |
+
+> **Примечание:** переменную `wg_network_name` задавать не нужно — она вычисляется динамически как `{{ service_name }}-net` (по умолчанию `wg-easy-net`).
+
+## Переменные окружения wg-easy
+
+Значения по умолчанию (v14, словарь `wg_env_vars`):
+
+| Name | Default |
+|:-----|:--------|
+| `lang` | `en` |
+| `wg_host` | `vpn.example.com` |
+| `port` | `51821` |
+| `port_ext` | `51821` |
+| `wg_port` | `51820` |
+| `wg_port_ext` | `51820` |
+| `password_hash` | `wg_easy_default_PSWD` |
+
+Свои значения передаются через `wg_env_vars_extra` (см. Quick Start).
+
+> Полный список доступных переменных и их описание — в официальной документации
+> [wg-easy (секция Options)](https://github.com/wg-easy/wg-easy/blob/v14.0.0/README.md#options).
+
+### Версии 15+
+
+Для `image_version: 15` / `15.4.0` используются словари:
+
+* **`wg_env_vars_15`** — переменные окружения wg-easy v15 (`experimental_awg`, `insecure`, `disable_ipv6`, `disable_password_auth` и др.);
+* **`wg_env_vars_init`** / **`wg_env_vars_init_extra`** — переменные первичной инициализации (выполняется один раз при первом запуске): `init_enabled`, `init_username`, `init_password`, `init_host`, `init_port`, `init_dns`, `init_ipv4_cidr`, `init_allowed_ips`.
+
+Пример:
+
+```yaml
+image_version: "15.4.0"
+
+wg_env_vars_init_extra:
+  init_enabled: true
+  init_username: admin
+  init_password: <your_password>
+  init_host: vpn.example.com
+  init_dns: 1.1.1.1,8.8.8.8
+```
+
+## Полезные теги
+
+| Tag | Description |
+|:----|:------------|
+| `wg_easy_docker_restart` | Перезапустить сервис (вместо идемпотентного up) |
+| `force_update_git_repo` | Принудительно обновить git-репозиторий wg-easy |
+| `wg_easy_generate` | Перегенерировать compose-файл |
+| `debug` | Вывод статуса сервисов Docker Compose |
