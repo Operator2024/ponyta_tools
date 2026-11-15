@@ -16,10 +16,20 @@
     - ansible_distribution in docker_distributions.keys()
 
 - name: Install Docker dependencies
-  become: true
-  package:
-    name: "{{ docker_distributions[ansible_distribution].dependencies }}"
-    state: present
+  block:
+    - name: Install via apt
+      become: true
+      ansible.builtin.apt:
+        name: "{{ docker_distributions[ansible_distribution].dependencies }}"
+        update_cache: yes
+        state: present
+      when: ansible_distribution in ["Ubuntu", "Debian"]
+    - name: Install via yum
+      ansible.builtin.yum:
+        name: "{{ docker_distributions[ansible_distribution].dependencies }}"
+        update_cache: yes
+        state: present
+      when: ansible_distribution not in ["Ubuntu", "Debian"]
   when:
     - docker_distributions is defined
     - ansible_distribution in docker_distributions.keys()
