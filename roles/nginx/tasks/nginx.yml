@@ -9,8 +9,8 @@
         trim_blocks: true
         lstrip_blocks: true
         mode: "0664"
-        owner: "{{ oricorio_user | default('root') }}"
-        group: "{{ oricorio_user | default('root') }}"
+        owner: "{{ nginx_user | default('root') }}"
+        group: "{{ nginx_user | default('root') }}"
 
     - name: Generate http sites from template
       tags:
@@ -21,8 +21,8 @@
         trim_blocks: true
         lstrip_blocks: true
         mode: "0664"
-        owner: "{{ oricorio_user | default('root') }}"
-        group: "{{ oricorio_user | default('root') }}"
+        owner: "{{ nginx_user | default('root') }}"
+        group: "{{ nginx_user | default('root') }}"
       with_items: "{{ nginx_http_sites | list }}"
       loop_control:
         loop_var: http_site
@@ -36,8 +36,8 @@
         trim_blocks: true
         lstrip_blocks: true
         mode: "0664"
-        owner: "{{ oricorio_user | default('root') }}"
-        group: "{{ oricorio_user | default('root') }}"
+        owner: "{{ nginx_user | default('root') }}"
+        group: "{{ nginx_user | default('root') }}"
       with_items: "{{ nginx_stream_sites | list }}"
       loop_control:
         loop_var: stream_site
