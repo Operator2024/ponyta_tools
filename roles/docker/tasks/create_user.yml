@@ -12,7 +12,7 @@
   when:
     - docker_rootless
 
-- name: Creare user and group for docker
+- name: Create user and group for docker
   become: true
   block:
     - name: Create group for docker
