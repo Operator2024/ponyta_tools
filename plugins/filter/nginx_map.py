@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 # https://nginx.org/en/docs/stream/ngx_stream_map_module.html
 # https://nginx.org/en/docs/http/ngx_http_map_module.html
 
+
 class NginxMap(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
@@ -39,7 +40,7 @@ class FilterModule(object):
 
     def get_ansible_error(self, e: ValidationError):
         for error in e.errors():
-            return "Atribute '{0}' is not implemented to({1}): ".format(
+            return "Attribute '{0}' is not implemented to({1}): ".format(
                 error['loc'][0], e.title) + error['msg']
 
     def get_map_block(

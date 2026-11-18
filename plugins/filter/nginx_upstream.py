@@ -59,9 +59,9 @@ class FilterModule(object):
 
     def get_ansible_error(self, e: ValidationError):
         for error in e.errors():
-            loc_msg = error['loc'][0] if 0 > len(
+            loc_msg = error['loc'][0] if len(
                 error['loc']) < 3 else error['loc'][2]
-            return "Atribute '{0}' is not implemented to({1}): ".format(
+            return "Attribute '{0}' is not implemented to({1}): ".format(
                 loc_msg, e.title) + error['msg']
 
     def get_upstream_block(self, upstream: dict) -> str:
