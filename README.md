@@ -15,6 +15,13 @@
 | 🔥 **`oricorio`** | Развертывание и конфигурация сервиса Oricorio | Debian, Ubuntu |
 | 🔥 **`nginx`** | Развертывание/конфигурацию Nginx в Docker | - |
 
+> 📖 **Документация по ролям:** подробное описание переменных и примеры использования находятся в README внутри каждой роли:
+> [docker](roles/docker/README.md) ([🇬🇧 EN](roles/docker/README_EN.md)) ·
+> [ponyta](roles/ponyta/README.md) ·
+> [oricorio](roles/oricorio/README.md) ·
+> [nginx](roles/nginx/README.md) ·
+> [wg_easy](roles/wg_easy/README.md) ([🇬🇧 EN](roles/wg_easy/README_EN.md))
+
 ### 📋 **Плейбуки (Playbooks)**
 
 | Плейбук | Описание | Теги |
