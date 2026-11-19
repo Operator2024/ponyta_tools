@@ -1,0 +1,31 @@
+---
+- name: Get all existing users
+  tags:
+    - create_user
+  ansible.builtin.getent:
+    database: passwd
+  when:
+    - "'getent_passwd' not in ansible_facts"
+
+- name: Create user and group for nginx
+  tags:
+    - create_user
+  block:
+    - name: Create group for nginx if not exists
+      ansible.builtin.group:
+        name: "{{ group }}"
+        state: present
+      with_items: "{{ nginx_user_groups }}"
+      loop_control:
+        loop_var: group
+
+    - name: Create user for nginx if not exists
+      ansible.builtin.user:
+        name: "{{ nginx_user }}"
+        comment: "User for running nginx services"
+        state: present
+        shell: /bin/bash
+        append: true
+        groups: "{{ nginx_user_groups }}"
+      when:
+        - nginx_user not in ansible_facts.getent_passwd

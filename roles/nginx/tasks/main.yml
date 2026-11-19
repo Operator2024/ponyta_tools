@@ -5,6 +5,9 @@
   import_role:
     name: docker
 
+- name: Import tasks for creating user and group
+  import_tasks: create_user.yml
+
 - block:
     - name: Create nginx directories
       tags:

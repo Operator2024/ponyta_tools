@@ -1,5 +1,6 @@
 ---
 nginx_user: bender
+nginx_user_groups: ["docker", "{{ nginx_user }}"]
 nginx_default_dir: /opt/docker_apps/nginx
 nginx_template_dir: "{{ nginx_default_dir }}/templates"
 nginx_http_template_dir: "{{ nginx_template_dir }}/http"
