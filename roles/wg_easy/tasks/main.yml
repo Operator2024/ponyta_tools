@@ -1,0 +1,137 @@
+---
+- name: Verify image_version is supported
+  tags:
+    - always
+  ansible.builtin.assert:
+    that:
+      - image_version in wg_easy_version_map
+    fail_msg: >-
+      Unknown image_version '{{ image_version }}'.
+      Supported versions: {{ wg_easy_version_map.keys() | list | join(', ') }}
+
+- block:
+    - name: Create wg_easy directories
+      tags:
+        - wg_dirs
+      become: true
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+        owner: "{{ wg_user }}"
+        group: "{{ wg_user }}"
+      with_items:
+        - "{{ wg_default_dir }}"
+
+- name: Import tasks for clone from git
+  import_tasks: clone_from_git.yml
+
+- name: Import tasks for verify network settings
+  tags:
+    - always
+  import_tasks: network.yml
+  when: not wg_shared_network
+
+- name: Generate compose file ({{ service_name }}, version {{ image_version }})
+  tags:
+    - wg_easy_generate
+  template:
+    src: "{{ wg_easy_version_map[image_version].compose_template }}"
+    dest: "{{ wg_compose_file }}"
+    trim_blocks: true
+    lstrip_blocks: true
+    mode: "0644"
+    owner: "{{ wg_user }}"
+    group: "{{ wg_user }}"
+
+- block:
+    - name: Enable deployed docker services
+      tags:
+        - wg_easy_docker
+      community.docker.docker_compose_v2:
+        project_src: "{{ wg_default_dir }}"
+        files:
+          - "{{ wg_compose_file }}"
+        state: present
+        services: "{{ service_name }}"
+      register: enable_services_result
+      when:
+        - "'wg_easy_docker_restart' not in ansible_run_tags"
+        - wg_easy_enabled
+
+    - name: Disable docker services (if enabled)
+      tags:
+        - wg_easy_docker
+      community.docker.docker_compose_v2:
+        project_src: "{{ wg_default_dir }}"
+        state: absent
+        services: "{{ service_name }}"
+      register: disable_services_result
+      when:
+        - not wg_easy_enabled
+
+    - name: Restart deployed docker services
+      tags:
+        - wg_easy_docker_restart
+      community.docker.docker_compose_v2:
+        project_src: "{{ wg_default_dir }}"
+        state: restarted
+        services: "{{ service_name }}"
+      register: restart_services_result
+      when:
+        - "'wg_easy_docker_restart' in ansible_run_tags"
+        - wg_easy_enabled
+
+    - name: Wait for services to stabilize before verification
+      tags:
+        - debug
+      ansible.builtin.pause:
+        seconds: "{{ wg_service_stabilize_seconds }}"
+      when:
+        - wg_easy_enabled
+        - (enable_services_result is defined and enable_services_result.changed) or (restart_services_result is defined and restart_services_result.changed)
+
+    - name: Get running services (retries catch containers that crash right after start)
+      tags:
+        - debug
+      ansible.builtin.command:
+        cmd: "docker compose ps --services --filter 'status=running'"
+        chdir: "{{ wg_default_dir }}"
+      register: service_check
+      changed_when: false
+      when: wg_easy_enabled
+      retries: "{{ wg_service_check_retries }}"
+      delay: "{{ wg_service_check_delay }}"
+      until: service_name in service_check.stdout_lines
+
+    - name: Get status of service {{ service_name }}
+      tags:
+        - debug
+      ansible.builtin.command:
+        cmd: "docker compose ps --all {{ service_name }}"
+        chdir: "{{ wg_default_dir }}"
+      register: service_status
+      changed_when: false
+
+    - name: Display services status
+      tags:
+        - debug
+      debug:
+        msg: "{{ service_status.stdout_lines }}"
+
+    - name: Display disabled services note
+      tags:
+        - debug
+      debug:
+        msg: "wg_easy is disabled (wg_easy_enabled=false) — services are stopped, verification skipped."
+      when: not wg_easy_enabled
+
+  rescue:
+    - name: Failed operations with wg-easy docker services
+      tags:
+        - always
+      failed_when: true
+      debug:
+        msg:
+          - "Docker operations for wg_easy failed. Check previous tasks for details."
+          - "{{ ansible_failed_result.msg }}"

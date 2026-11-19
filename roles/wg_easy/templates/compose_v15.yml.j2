@@ -1,0 +1,68 @@
+{% set wg_env_vars_15 = (wg_env_vars_15 | combine(wg_env_vars_extra)) %}
+{% set wg_env_vars_init = (wg_env_vars_init | combine(wg_env_vars_init_extra)) %}
+
+volumes:
+  etc_wireguard:
+
+services:
+  {{ service_name }}:
+    {% if wg_env_vars_init or wg_env_vars_15 %}
+    environment:
+    {% endif %}
+      {% for name, value in wg_env_vars_15.items() %}
+      - {{ name | upper }}={{ value | to_json }}
+      {% endfor %}
+      {% if wg_env_vars_init.get('init_enabled') %}
+      {% for name, value in wg_env_vars_init.items() %}
+      - {{ name | upper }}={{ value | to_json}}
+      {% endfor %}
+      {% endif %}
+
+    image: ghcr.io/wg-easy/wg-easy:{{ image_version }}
+    container_name: {{ service_name }}
+    networks:
+      - {{ wg_network_name }}
+    volumes:
+      - etc_wireguard:/etc/wireguard
+      - /lib/modules:/lib/modules:ro
+    ports:
+      - "{{ wg_env_vars_15.get('port') }}:{{ wg_env_vars_15.get('port') }}/tcp"
+      - "{{ wg_env_vars.get('wg_port') }}:{{ wg_env_vars.get('wg_port') }}/udp"
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+      # - NET_RAW # ⚠️ Uncomment if using Podman
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+      {% if wg_env_vars_15.get('disable_ipv6') %}
+      - net.ipv6.conf.all.disable_ipv6=1
+      - net.ipv6.conf.all.forwarding=0
+      - net.ipv6.conf.default.forwarding=0
+      {% else %}
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv6.conf.all.forwarding=1
+      - net.ipv6.conf.default.forwarding=1
+      {% endif %}
+
+networks:
+  {{ wg_network_name }}:
+    driver: bridge
+    {% if wg_env_vars_15.get('disable_ipv6') %}
+    enable_ipv6: false
+    {% else %}
+    enable_ipv6: true
+    {% endif %}
+    {% if wg_shared_network %}
+    external: {{ wg_shared_network }}
+    name: {{ wg_shared_network_name }}
+    {% else %}
+    name: {{ wg_network_name }}
+    ipam:
+      driver: default
+      config:
+        - subnet: {{ wg_network_subnet }}
+          ip_range: {{ wg_network_range }}
+          gateway: {{ wg_network_gateway }}
+    {% endif %}

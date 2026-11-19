@@ -1,0 +1,41 @@
+---
+- block:
+    - name: Generate .env file ({{ service_name }})
+      tags:
+        - nginx_docker_generate
+      template:
+        src: env.j2
+        dest: "{{ nginx_default_dir }}/.env"
+        trim_blocks: true
+        lstrip_blocks: true
+        mode: "0644"
+        owner: "{{ nginx_user }}"
+        group: "{{ nginx_user }}"
+
+    - name: Generate compose.yml ({{ service_name }})
+      tags:
+        - nginx_docker_generate
+      template:
+        src: compose.yml.j2
+        dest: "{{ nginx_default_dir }}/compose.yml"
+        trim_blocks: true
+        lstrip_blocks: true
+        mode: "0664"
+        owner: "{{ nginx_user }}"
+        group: "{{ nginx_user }}"
+
+    - name: Copy dockerfile ({{ service_name }})
+      tags:
+        - nginx_docker_generate
+      copy:
+        src: files/Dockerfile
+        dest: "{{ nginx_default_dir }}/Dockerfile"
+        mode: "0664"
+        owner: "{{ nginx_user }}"
+        group: "{{ nginx_user }}"
+  rescue:
+    - name: Fail nginx docker setup
+      tags:
+        - nginx_docker_generate
+      fail:
+        msg: "Failed to setup nginx docker configuration. Check previous tasks for details."

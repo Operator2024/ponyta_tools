@@ -1,0 +1,54 @@
+{# Common primitives for nginx #}
+{% macro render_http_upstream(nginx_upstream) %}
+{% for name, upstream in nginx_upstream.items() %}
+upstream {{ name }} {
+{{ upstream | render_upstream_block() | indent(4, True) -}}
+{%- if true %}}{% endif %}
+{% endfor %}
+{% endmacro %}
+
+{% macro render_stream_upstream(name, upstream) %}
+upstream {{ name }} {
+{{ upstream | render_upstream_block() | indent(4, True) -}}
+{%- if true %}}{% endif %}
+{% endmacro %}
+
+{% macro render_map(nginx_map, fmt=14) %}
+{% for var_name, params in nginx_map.items() %}
+{{ params | render_map_block(name=var_name) | indent(4) }}
+{% endfor %}
+{% endmacro %}
+
+{% macro render_conditions(conditions) %}
+{% for condition in conditions %}
+if ({{ condition.rule }}) {
+{{ condition.action | indent(4, True) }};
+}
+{% endfor %}
+{% endmacro %}
+
+{% macro render_inner_params(name, value) %}
+{% for sub_key, sub_value in value.items() %}
+{{ name }} {{ sub_key }} {{ sub_value }};
+{% endfor %}
+{% endmacro %}
+
+{% macro render_params(params, indent=4) -%}
+{% for name, value in params.items() if name != 'modifier' %}
+{%- if value is mapping and value != "if" -%}
+{# Если значение - словарь (например, proxy_set_header) #}
+{{- render_inner_params(name, value) | indent(4, True) -}}
+{%- elif name == "if" -%}
+{{- render_conditions(value) | indent(4, True) -}}
+{%- else -%}
+{# Если значение - строка или число #}
+{{ ' ' * indent }}{{ name }} {{ value }};
+{% endif %}
+{% endfor %}
+{% endmacro %}
+
+{% macro render_sequence(name, values) -%}
+{% for value in values %}
+{{ name }} {{ value }};
+{% endfor %}
+{% endmacro -%}

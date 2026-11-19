@@ -1,0 +1,5 @@
+---
+# Docker-compose services status lists
+docker_compose_services: []
+docker_compose_services_up: []
+docker_compose_services_down: []

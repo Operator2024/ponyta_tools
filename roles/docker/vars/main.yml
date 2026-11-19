@@ -9,6 +9,7 @@ docker_distributions:
       - "curl"
       - "gnupg"
       - "lsb-release"
+      - "uidmap"
   Debian:
     repo_name: "debian"
     dependencies:
@@ -17,6 +18,7 @@ docker_distributions:
       - "curl"
       - "gnupg"
       - "lsb-release"
+      - "uidmap"
   CentOS:
     repo_name: "centos"
     dependencies:

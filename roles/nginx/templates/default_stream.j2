@@ -1,0 +1,9 @@
+{% from 'functions/common.j2' import render_params, render_stream_upstream %}
+
+{% if stream_site in nginx_stream_upstream %}
+{{ render_stream_upstream(stream_site, nginx_stream_upstream[stream_site] ) -}}
+{% endif +%}
+
+server {
+{{ render_params(nginx_stream_sites[stream_site] ) -}}
+}

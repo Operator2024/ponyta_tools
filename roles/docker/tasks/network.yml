@@ -1,0 +1,15 @@
+---
+- block:
+    - name: Create docker network
+      community.docker.docker_network:
+        name: "{{ network.name }}"
+        driver: "{{ network.driver }}"
+        ipam_config:
+          - subnet: "{{ network.ipam_config.subnet }}"
+            gateway: "{{ network.ipam_config.gateway }}"
+        state: "{{ network.state }}"
+
+  rescue:
+    - name: Docker network creation failed
+      fail:
+        msg: "Failed to create network with name '{{ network.name }}', reason: {{ ansible_failed_result.msg }}"

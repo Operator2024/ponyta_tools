@@ -1,0 +1,52 @@
+{% set wg_env_vars = (wg_env_vars | combine(wg_env_vars_extra)) %}
+{# Deterministic salt (host + service) so the same password always yields the same bcrypt hash -> idempotent template #}
+{% set wg_pswd_salt = (inventory_hostname ~ service_name) | hash('sha256') | truncate(22, true, '') %}
+
+volumes:
+  etc_wireguard:
+
+services:
+  {{ service_name }}:
+    environment:
+      {% for name, value in wg_env_vars.items() %}
+      {% if name == "password_hash" %}
+      {% set wg_pswd = value if value is match('^\\$2[aby]\\$') else (value | password_hash('bcrypt', salt=wg_pswd_salt, rounds=10)) %}
+      - {{ name | upper }}={{ wg_pswd | replace('$', '$$') }}
+      {% elif 'ext' not in name %}
+      - {{ name | upper }}={{ value | to_json }}
+      {% endif %}
+      {% endfor %}
+
+    image: ghcr.io/wg-easy/wg-easy:{{ image_version }}
+    container_name: {{ service_name }}
+    networks:
+      - {{ wg_network_name }}
+    volumes:
+      - etc_wireguard:/etc/wireguard
+    ports:
+      - "{{ wg_env_vars.get('port_ext') }}:{{ wg_env_vars.get('port') }}/tcp"
+      - "{{ wg_env_vars.get('wg_port_ext') }}:{{ wg_env_vars.get('wg_port') }}/udp"
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+      # - NET_RAW # ⚠️ Uncomment if using Podman
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+
+networks:
+  {{ wg_network_name }}:
+    driver: bridge
+    {% if wg_shared_network %}
+    external: {{ wg_shared_network }}
+    name: {{ wg_shared_network_name }}
+    {% else %}
+    name: {{ wg_network_name }}
+    ipam:
+      driver: default
+      config:
+        - subnet: {{ wg_network_subnet }}
+          ip_range: {{ wg_network_range }}
+          gateway: {{ wg_network_gateway }}
+    {% endif %}
